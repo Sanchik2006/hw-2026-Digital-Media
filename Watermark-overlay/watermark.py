@@ -108,7 +108,7 @@ def apply_watermark(
         # 平铺模式 (满屏包浆效果)
         for y in range(0, img_h + rot_h, rot_h + padding * 2):
             for x in range(0, img_w + rot_w, rot_w + padding * 2):
-                watermark.paste(rotated_text, (x, y), rotated_text)
+                watermark.paste(rotated_text, (x, y))
     else:
         # 单点模式
         if position == "left-top":
@@ -122,7 +122,7 @@ def apply_watermark(
         else: # center
             pos = ((img_w - rot_w) // 2, (img_h - rot_h) // 2)
             
-        watermark.paste(rotated_text, pos, rotated_text)
+        watermark.paste(rotated_text, pos)
 
     # 5. 合并图层
     final_image = Image.alpha_composite(base_image, watermark).convert("RGB")
