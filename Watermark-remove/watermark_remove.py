@@ -1,29 +1,16 @@
-import os
 import cv2
 import numpy as np
-from PIL import Image
+# fix :移除了用于测试程序的os和用于读图存图和转换的Pillow库
 
-
-def _load_rgb(input_image):
-    """加载图片并统一转为 RGB 模式
-
-    :param input_image: 输入图片的本地路径 (str) 或 PIL Image 对象
-    :return: RGB 模式的 PIL Image 对象
-    """
-    if isinstance(input_image, str):
-        return Image.open(input_image).convert("RGB")
-    if isinstance(input_image, Image.Image):
-        return input_image.convert("RGB")
-    raise TypeError("input_image 必须是文件路径 (str) 或 PIL Image 对象")
-
+# fix:移除_load_rgb,限制调用方传入算法模块格式仅为RGB
 
 def refine_mask(
-    mask,
-    min_area=30,
-    max_area_ratio=0.25,
-    min_fill_ratio=0.10,
-    max_aspect_ratio=20
-):
+    mask: np.ndarray,
+    min_area: int = 30,
+    max_area_ratio: float = 0.25,
+    min_fill_ratio: float = 0.10,
+    max_aspect_ratio: float = 20,
+) -> np.ndarray:
     """按连通域过滤掩膜，去掉噪点与大片误检区域
 
     过滤规则（按顺序）：
@@ -78,21 +65,21 @@ def refine_mask(
 
 
 def detect_white_watermark_mask(
-    rgb,
-    v_thresh=200,
-    s_thresh=40,
-    tophat_kernel_size=9,
-    tophat_thresh=20,
-    close_kernel_size=5,
-    dilate_kernel_size=3,
-    dilate_iter=2,
-    refine=True,
-    min_area=30,
-    max_area_ratio=0.25,
-    min_fill_ratio=0.10,
-    max_aspect_ratio=20,
-    debug=False
-):
+    bgr: np.ndarray,
+    v_thresh: int = 200,
+    s_thresh: int = 40,
+    tophat_kernel_size: int = 9,
+    tophat_thresh: float | None = 20,
+    close_kernel_size: int = 5,
+    dilate_kernel_size: int = 3,
+    dilate_iter: int = 2,
+    refine: bool = True,
+    min_area: int = 30,
+    max_area_ratio: float = 0.25,
+    min_fill_ratio: float = 0.10,
+    max_aspect_ratio: float = 20,
+    debug: bool = False,
+) -> np.ndarray | tuple[np.ndarray, dict[str, np.ndarray]]:
     """自动检测白色半透明文字水印，返回二值掩膜
 
     采用双通道融合策略：
@@ -102,7 +89,7 @@ def detect_white_watermark_mask(
     （在膨胀之前去噪点、去大片白底，避免膨胀把噪点放大后逃过过滤），
     最后再膨胀覆盖文字边缘的抗锯齿过渡带。
 
-    :param rgb: RGB 顺序的图像，numpy 数组 (H, W, 3) 或 PIL Image 对象
+    :param rgb: BGR uint8 图像数组
     :param v_thresh: 通道 A 亮度阈值，V > v_thresh 视为白色候选，默认 200
     :param s_thresh: 通道 A 饱和度阈值，S < s_thresh 视为低饱和度，默认 40
     :param tophat_kernel_size: 通道 B 顶帽变换的结构元尺寸（自动取奇数），默认 9
@@ -120,22 +107,24 @@ def detect_white_watermark_mask(
              debug=True 返回 (mask, debug_info)，debug_info 含 'channel_a'、'channel_b'、
              'fused'、'mask_before_refine'、'mask'
     """
-    if isinstance(rgb, Image.Image):
-        rgb = np.array(rgb.convert("RGB"))
-    if not isinstance(rgb, np.ndarray):
-        raise TypeError("rgb 必须是 numpy 数组 (H, W, 3) 或 PIL Image 对象")
-    if rgb.ndim != 3 or rgb.shape[2] < 3:
-        raise ValueError("rgb 必须是三通道图像，形状为 (H, W, 3)")
+    if not isinstance(bgr, np.ndarray):
+        raise TypeError("bgr 必须是 numpy 数组")
+    if bgr.ndim != 3 or bgr.shape[2] != 3:
+        raise ValueError("bgr 必须是三通道图像 (H, W, 3)")
+    if bgr.dtype != np.uint8:
+        raise TypeError("bgr 的像素类型必须为 uint8")
+    if bgr.size == 0:
+        raise ValueError("输入图像不能为空")
 
-    arr = np.ascontiguousarray(rgb[..., :3]).astype(np.uint8)
+    arr = np.ascontiguousarray(bgr)
 
     # 通道 A：HSV 白色阈值（注意是 RGB -> HSV）
-    hsv = cv2.cvtColor(arr, cv2.COLOR_RGB2HSV)
+    hsv = cv2.cvtColor(arr, cv2.COLOR_BGR2HSV)
     _h, s, v = cv2.split(hsv)
     channel_a = ((v > v_thresh) & (s < s_thresh)).astype(np.uint8) * 255
 
     # 通道 B：灰度顶帽变换，抠出细长亮笔画
-    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+    gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
     k = max(3, int(tophat_kernel_size) | 1)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
     tophat = cv2.morphologyEx(gray, cv2.MORPH_TOPHAT, kernel)
@@ -182,12 +171,12 @@ def detect_white_watermark_mask(
 
 
 def repair_by_mask(
-    rgb,
-    mask,
-    method="inpaint",
-    inpaint_radius=3,
-    feather_sigma=3
-):
+    bgr: np.ndarray,
+    mask: np.ndarray,
+    method: str = "inpaint",
+    inpaint_radius: float = 3,
+    feather_sigma: float = 3,
+) -> np.ndarray:
     """按掩膜修复水印区域，返回修复后的 RGB 图像
 
     修复流程：
@@ -202,25 +191,33 @@ def repair_by_mask(
     :param feather_sigma: 边缘羽化高斯核的 sigma，默认 3
     :return: 修复后的 RGB numpy 数组 (H, W, 3)，uint8
     """
-    m = np.asarray(mask)
-    if m.ndim == 3:
-        m = m[..., 0]
-    if m.ndim != 2:
-        raise ValueError("mask 必须是单通道掩膜，形状为 (H, W)")
 
+    #fix:将原本允许传入3通道自动拉取第一通道的逻辑修改为
+    #统一要求单通道
+    if method != "inpaint":
+        raise ValueError("目前仅支持 inpaint 修复方式")
+    if not np.isfinite(inpaint_radius) or inpaint_radius <= 0:
+        raise ValueError("inpaint_radius 必须为有限正数")
+    if not np.isfinite(feather_sigma) or feather_sigma < 0:
+        raise ValueError("feather_sigma 必须为有限非负数")
+
+    m = np.asarray(mask)
+
+    if m.ndim != 2:
+        raise ValueError("mask 必须是单通道掩膜 (H, W)")
+    if m.shape != bgr.shape[:2]:
+        raise ValueError("mask 尺寸必须与输入图像一致")
     if not (m > 0).any():
-        # 掩膜为空：原样返回，打印提示交由上层调用方负责
-        return np.asarray(rgb).copy()
+        return bgr.copy()
 
     binary = (m > 0).astype(np.uint8) * 255
 
-    if method != "inpaint":
-        print(f"[WARN] 未知修复方式 {method}，回退到 inpaint")
-        method = "inpaint"
-
-    # 全程 RGB，不转 BGR；inpaint 的 mask 必须是 uint8 单通道
+    # 直接处理BGR；inpaint 的 mask 必须是 uint8 单通道
     inpainted = cv2.inpaint(
-        rgb.astype(np.uint8), binary, int(inpaint_radius), cv2.INPAINT_TELEA
+        bgr,
+        binary,
+        float(inpaint_radius),
+        cv2.INPAINT_TELEA
     )
 
     # 边缘羽化：把掩膜高斯模糊成水印权重 w（水印中心≈1、背景≈0、过渡带介于其间），
@@ -230,7 +227,7 @@ def repair_by_mask(
     )
     w = w[..., None].astype(np.float32)
 
-    src = rgb.astype(np.float32)
+    src = bgr.astype(np.float32)
     fixed = inpainted.astype(np.float32)
     result = src * (1.0 - w) + fixed * w
     result = np.clip(result, 0, 255).astype(np.uint8)
@@ -238,7 +235,10 @@ def repair_by_mask(
     return result
 
 
-def build_mask_from_regions(size, regions):
+def build_mask_from_regions(
+    size: tuple[int, int],
+    regions: list[tuple[int, int, int, int]] | None,
+) -> np.ndarray:
     """根据手动框选区域生成掩膜
 
     :param size: 图像尺寸 (width, height)，与 PIL Image.size 一致
@@ -262,13 +262,14 @@ def build_mask_from_regions(size, regions):
 
 
 def remove_watermark(
-    input_image,
-    regions=None,
-    auto_detect=True,
-    method="inpaint",
-    output_path=None,
-    **detect_kwargs
-):
+    input_image: np.ndarray,
+    regions: list[tuple[int, int, int, int]] | None = None,
+    auto_detect: bool = True,
+    method: str = "inpaint",
+    inpaint_radius: float = 3,
+    feather_sigma: float = 3,
+    **detect_kwargs,
+) -> np.ndarray:
     """【任务4：去除水印】核心处理函数
 
     处理流程：
@@ -278,95 +279,55 @@ def remove_watermark(
     4. 掩膜为空时打印提示并原样返回；
     5. 否则按掩膜修复（inpaint），可选保存并返回。
 
-    :param input_image: 输入图片的本地路径 (str) 或 PIL Image 对象
+    :param input_image: BGR uint8 图像数组 (H, W, 3)
     :param regions: 手动指定的水印区域列表，元素为 (x1, y1, x2, y2)，默认 None
     :param auto_detect: 是否自动检测水印，默认 True
     :param method: 修复方式，目前仅支持 "inpaint"，非法值回退到 inpaint
-    :param output_path: 若提供，则将结果保存到该路径
     :param detect_kwargs: 透传给 detect_white_watermark_mask 的关键字参数
         （如 v_thresh / s_thresh / tophat_thresh / min_area / max_area_ratio 等）
-    :return: 处理后的 PIL Image 对象 (RGB 模式)
+
+    :return:处理后的 BGR uint8 图像数组，
     """
-    img = _load_rgb(input_image)
-    rgb = np.array(img)
+        # 1. 检查输入图像
+    if not isinstance(input_image, np.ndarray):
+        raise TypeError("input_image 必须是 numpy 数组")
+
+    if input_image.ndim != 3 or input_image.shape[2] != 3:
+        raise ValueError("输入图像必须为 (H, W, 3)")
+
+    if input_image.dtype != np.uint8:
+        raise TypeError("输入图像必须为 uint8 类型")
+
+    if input_image.size == 0:
+        raise ValueError("输入图像不能为空")
+
+    bgr = np.ascontiguousarray(input_image)
 
     # 手动区域掩膜（兜底能力），再叠加自动检测结果
-    mask = build_mask_from_regions(img.size, regions)
+    h, w = bgr.shape[:2]
+    mask = build_mask_from_regions((w,h), regions)
     if auto_detect:
-        detected = detect_white_watermark_mask(rgb, **detect_kwargs)
+        detected = detect_white_watermark_mask(bgr, **detect_kwargs)
         mask = cv2.bitwise_or(mask, detected)
 
-    if not (mask > 0).any():
-        print("[INFO] 未检测到水印区域，返回原图")
-        result = img
-    else:
-        fixed_rgb = repair_by_mask(rgb, mask, method=method)
-        result = Image.fromarray(fixed_rgb)
+    # 自动检测+合并掩膜
+    if auto_detect:
+        detected = detect_white_watermark_mask(
+            bgr,
+            **detect_kwargs
+        )
 
-    if output_path:
-        result.save(output_path, quality=95)
+    #若debug===True->检测函数返回元组
+    if isinstance(detected, tuple):
+        detected = detected[0]
 
-    return result
+    mask = cv2.bitwise_or(mask, detected)
 
-
-if __name__ == "__main__":
-    import sys
-
-    HERE = os.path.dirname(os.path.abspath(__file__))
-    ROOT = os.path.dirname(HERE)
-
-    INPUT_FILE = os.path.join(HERE, "test.jpg")
-    WM_INPUT_FILE = os.path.join(HERE, "watermark_input.jpg")
-    WM_REMOVED_FILE = os.path.join(HERE, "watermark_removed.jpg")
-    COMPARE_FILE = os.path.join(HERE, "compare.jpg")
-
-    # 跨目录导入水印叠加模块（失败时给出可读提示，不让脚本崩溃）
-    try:
-        sys.path.insert(0, os.path.join(ROOT, "Watermark-overlay"))
-        from watermark import apply_watermark
-    except Exception as exc:
-        print(f"[ERROR] 无法导入水印叠加模块 Watermark-overlay/watermark.py：{exc}")
-        print("请确认该模块存在，且已安装依赖：pip install pillow numpy opencv-python")
-        sys.exit(1)
-
-    # 读取原图
-    try:
-        original = _load_rgb(INPUT_FILE)
-    except FileNotFoundError:
-        print("找不到 test.jpg，请在 Watermark-remove 文件夹内放入图片")
-        sys.exit(1)
-
-    # 1. 叠加水印
-    watermarked = apply_watermark(
-        original,
-        text="包浆老图",
-        position="center",
-        opacity=0.3,
-        angle=15,
-        font_size=50,
+    # 4. 根据掩膜修复图像
+    return repair_by_mask(
+        bgr,
+        mask,
+        method=method,
+        inpaint_radius=inpaint_radius,
+        feather_sigma=feather_sigma,
     )
-    watermarked.save(WM_INPUT_FILE, quality=95)
-
-    # 2. 去除水印
-    removed = remove_watermark(WM_INPUT_FILE, output_path=WM_REMOVED_FILE)
-
-    # 3. 三图横向拼接（高度对齐，中间加 10px 白边分隔）
-    gap = 10
-    height = max(original.height, watermarked.height, removed.height)
-    gap_img = Image.new("RGB", (gap, height), (255, 255, 255))
-    compare = Image.new(
-        "RGB", (original.width * 3 + gap * 2, height), (255, 255, 255)
-    )
-
-    compare.paste(original, (0, 0))
-    compare.paste(gap_img, (original.width, 0))
-    compare.paste(watermarked, (original.width + gap, 0))
-    compare.paste(gap_img, (original.width * 2 + gap, 0))
-    compare.paste(removed, (original.width * 2 + gap * 2, 0))
-    compare.save(COMPARE_FILE, quality=95)
-
-    print("闭环对比演示完成：")
-    print(f"  原图   : {INPUT_FILE}")
-    print(f"  带水印 : {WM_INPUT_FILE}")
-    print(f"  去水印 : {WM_REMOVED_FILE}")
-    print(f"  对比图 : {COMPARE_FILE}")

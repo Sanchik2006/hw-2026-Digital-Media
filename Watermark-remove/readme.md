@@ -4,13 +4,12 @@
 
 ## 依赖
 
-- pillow
 - numpy
 - opencv-python
+闭环测试还依赖Watermark-overlay模块及Pillow
 
-```bash
-pip install pillow numpy opencv-python
-```
+在本文件夹中安装依赖:
+pip install -r ../requirements.txt
 
 ## 对外接口
 
@@ -20,24 +19,26 @@ from watermark_remove import remove_watermark
 
 ```python
 def remove_watermark(
-    input_image,
-    regions=None,
-    auto_detect=True,
-    method="inpaint",
-    output_path=None,
-    **detect_kwargs
-)
+    input_image: np.ndarray,
+    regions: list[tuple[int, int, int, int]] | None = None,
+    auto_detect: bool = True,
+    method: str = "inpaint",
+    inpaint_radius: float = 3,
+    feather_sigma: float = 3,
+    **detect_kwargs,
+) -> np.ndarray:
 ```
 
 ### 参数说明
 
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `input_image` | str 或 PIL.Image | 必填 | 输入图片的本地路径，或 PIL Image 对象 |
+| `input_image` | np.ndarry | 必填 | BGR uint8 图像数组 (H, W, 3) |
 | `regions` | list[tuple] | None | 手动框选的水印区域，元素为 `(x1, y1, x2, y2)` |
 | `auto_detect` | bool | True | 是否自动检测水印掩膜 |
+| `inpaint_radius` | float | 3 | 图像修复半径，必须>0 |
+| `feather_sigma` | float | 3 | 羽化强度，0表示关闭 |
 | `method` | str | "inpaint" | 修复方式，目前仅支持 "inpaint" |
-| `output_path` | str | None | 若提供，结果保存到该路径 |
 | `**detect_kwargs` | - | - | 透传给 `detect_white_watermark_mask` 的调参参数 |
 
 `detect_kwargs` 常用参数：
@@ -53,41 +54,42 @@ def remove_watermark(
 
 ### 返回值
 
-- 处理完成后的 PIL Image 对象（RGB 模式）。
+- 返回新的 BGR uint8 图像数组
 
 ## 最短示例
 
 ```python
+import cv2
 from watermark_remove import remove_watermark
 
-result = remove_watermark("test.jpg", output_path="output.jpg")
+img = cv2.imread("watermark_input.jpg")
+if img is None:
+    raise FileNotFoundError("watermark_input.jpg")
+result = remove_watermark(img)
+cv2.imwrite("output.jpg", result)
 ```
 
 ## 进阶示例（手动框选）
 
 ```python
-from watermark_remove import remove_watermark
-
-# 关闭自动检测，只修复手动指定的矩形区域
 result = remove_watermark(
-    "test.jpg",
+    img,
     regions=[(100, 80, 300, 200)],
     auto_detect=False,
-    output_path="manual_output.jpg",
 )
 ```
 
 ## 调参示例
 
 ```python
-# 自动检测时微调阈值，避免把背景也算进去
 result = remove_watermark(
-    "test.jpg",
-    v_thresh=225,
-    s_thresh=25,
-    tophat_thresh=30,
-    max_area_ratio=0.15,
-    output_path="output.jpg",
+    img,
+    v_thresh=180,
+    s_thresh=80,
+    tophat_thresh=10,
+    min_area=10,
+    inpaint_radius=3,
+    feather_sigma=1,
 )
 ```
 
@@ -106,7 +108,8 @@ result = remove_watermark(
 
 ## 闭环演示
 
-运行脚本会生成「原图｜带水印｜去水印」三图对比，需在同目录放入 `test.jpg`：
+在同目录放入 `test.jpg`：
+运行 `python main.py`
 
 ```bash
 python watermark_remove.py
