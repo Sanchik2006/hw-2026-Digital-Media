@@ -1,4 +1,5 @@
 #图像处理流水线
+# 进行顺序:
 #   remove_watermark 去水印
 # ->apply_rotate_flip 旋转翻转
 # ->apply_patina_effect 噪点和色偏

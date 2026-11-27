@@ -1,6 +1,7 @@
 # Integrate 图像处理全逻辑
 
 整合项目中的五个独立图像处理算法，提供统一处理入口
+提供自定义程度、固定程度预设和年份预设三种生成方式,所有配方均关闭自动去水印功能
 
 ## 图像接口规范
 
@@ -21,8 +22,22 @@
 ## 对外接口
 
 ```python
-from integrate import apply_pipeline
+from integrate import (
+    apply_pipeline,
+    get_preset,
+    get_year_preset,
+    PipelineConfig,
+)
 ```
+
+| 接口 | 说明 |
+|---|---|
+| apply_pipeline() | 图像处理流水线 |
+| get_preset() | 获取预设配方 |
+| get_year_preset() | 获取指定流传年份配方 |
+| PipelineConfig | 统一配方数据类型 |
+
+### apply_pipeline()
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
@@ -34,15 +49,19 @@ from integrate import apply_pipeline
 | compress_params | dict或None | 压缩参数 |
 
 参数为None时跳过该模块。
+水印叠加模块可传入多个参数字典，按顺序逐层叠加水印。
 
-## 调用示例
+## 包浆配方系统
+
+### 1.自定义模式
+
+独立启用各图像处理模块，并手动设置对应算法参数
 
 ```python
 import cv2
 from integrate import apply_pipeline
 
 img = cv2.imread("test.jpg")
-
 result = apply_pipeline(
     img,
     noise_params={
@@ -59,26 +78,70 @@ result = apply_pipeline(
         "age": 10,
     },
 )
+cv2.imwrite("output.png", result)
+```
 
-cv2.imwrite("output.jpg", result)
+调用示例:
+
+```python
+import cv2
+from integrate import apply_pipeline, get_preset
+
+img = cv2.imread("test.jpg")
+
+config = get_preset("medium")
+result = apply_pipeline(img, **config)
+
+cv2.imwrite("output.png", result)
+```
+
+### 2.年份预设
+
+get_year_preset(age)获取对应流传年份的配方(支持0～50)
+噪点、色偏、压缩程度随年份变化
+
+调用示例:
+
+```python
+import cv2
+from integrate import apply_pipeline, get_year_preset
+
+img = cv2.imread("test.jpg")
+
+config = get_year_preset(25)
+result = apply_pipeline(img, **config)
+
+cv2.imwrite("output.png", result)
+```
+
+### 3.固定程度预设
+
+```python
+config = get_preset("medium")
+
+# 修改噪点及色偏参数
+config["noise_params"] = {
+    "package_level": 0.7,
+    "green_level": 0.5,
+}
+
+# 关闭压缩模块
+config["compress_params"] = None
+
+result = apply_pipeline(img, **config)
 ```
 
 ## 运行测试
 
-将测试图片 test.jpg 放入 /integrate。
+将测试图片test.jpg放入integrate/目录
+输出图片位于integrate/output.jpg
+
+### 集成测试
 
 在项目根目录执行：
+`python -m integrate.main`
 
-```bash
-python -m integrate.main
-```
+### 配方系统测试
 
-输出图片位于 integrate/output.jpg。
-
-## 已知局限
-
-- 当前采用固定算法执行顺序。
-- 图像压缩与旋转可能改变输出尺寸。
-- 水印自动检测效果取决于图片内容。
-- 暂未支持预设配方和独立压缩参数。
-- 暂未接入网站及 HTTP API。
+在项目根目录执行：
+`python -m integrate.test_presets`

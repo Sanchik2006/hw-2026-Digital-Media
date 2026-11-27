@@ -1,4 +1,5 @@
-# 集成测试
+# 测试自定义模式效果
+
 from pathlib import Path
 
 import cv2
