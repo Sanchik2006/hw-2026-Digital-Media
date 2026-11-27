@@ -3,7 +3,7 @@
 主接口：
     apply_rotate_flip(input_img, angle=0, clockwise=True,
                       flip_horizontal=False, flip_vertical=False,
-                      expand=True, fill_color=None) -> PIL.Image.Image
+                      expand=True, fill_color=None) -> np.ndarry
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image
+
+import cv2 #导入OpenCV库
 
 FillColor = Optional[Union[int, Sequence[int]]]
 
@@ -128,16 +130,32 @@ def flip_image(input_img: Image.Image, mode: str = "horizontal") -> Image.Image:
 
 
 def apply_rotate_flip(
-    input_img: Image.Image,
+    input_img: np.ndarray,
     angle: float = 0.0,
     clockwise: bool = True,
     flip_horizontal: bool = False,
     flip_vertical: bool = False,
     expand: bool = True,
     fill_color: FillColor = None,
-) -> Image.Image:
-    """主接口：先翻转，再旋转。输入输出都是 PIL Image。"""
-    result = input_img
+) -> np.ndarray:
+    """主接口：先翻转，再旋转。
+    
+    传入:
+    input_img: BGR uint8 ndarry
+    angle: 旋转角度(度)
+    clockwise: True->顺时针
+    flip_horizontal: True->水平翻转
+    flip_vertical: True->垂直翻转
+    expand: True->开启自动扩大画布
+    fill_color: 空白区域填充色(RGB)，默认黑色
+
+返回:
+    处理后的 BGR uint8 图像数组，
+    宽高可能因旋转发生变化，不修改原图。
+    """
+    result = Image.fromarray(
+    cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB) #fix:输入BGR uint8 ndarry并转Pillow
+)
 
     if flip_horizontal:
         result = flip_image(result, "horizontal")
@@ -153,4 +171,8 @@ def apply_rotate_flip(
         )
 
     # 没有任何操作时也返回副本，避免调用方误改原图
-    return result.copy() if result is input_img else result
+    # fix:Pillow image -> BGR uint8 ndarry
+    return cv2.cvtColor(
+        np.array(result),
+        cv2.COLOR_RGB2BGR
+    )

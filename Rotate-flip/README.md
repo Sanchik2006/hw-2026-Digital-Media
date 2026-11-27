@@ -6,6 +6,7 @@
 
 - pillow
 - numpy
+- opencv-python
 
 安装：
 
@@ -29,13 +30,13 @@ result = apply_rotate_flip(
 
 参数：
 
-- `input_img`：PIL Image，推荐 RGB/RGBA。
+- `input_img`：BGR uint8 (H,W,3)
 - `angle`：旋转角度（度），取绝对值。
 - `clockwise`：True 顺时针，False 逆时针。
 - `flip_horizontal`：左右镜像（绕竖直对称轴）。
 - `flip_vertical`：上下镜像（绕水平对称轴）。
 - `expand`：True 自动扩大画布，避免四角被裁；False 保持原尺寸。
-- `fill_color`：旋转后空白区域颜色；默认 RGB 黑、RGBA 透明。
+- `fill_color`：旋转后空白区域颜色；默认黑色
 
 返回：新的 PIL Image（不修改原图）。处理顺序：先翻转，再旋转。
 
@@ -43,6 +44,8 @@ result = apply_rotate_flip(
 
 - `rotate_image(img, angle=15, clockwise=True, expand=True, fill_color=None)`
 - `flip_image(img, mode="horizontal" | "vertical" | "both")`
+
+底层函数说明:rotate_image()和flip_image()内部仍旧使用PIL Image
 
 ## 如何测试
 

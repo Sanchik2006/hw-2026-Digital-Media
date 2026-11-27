@@ -1,4 +1,4 @@
-from PIL import Image
+import cv2 #fix:main中传入传出uint8 ndarry,在函数内转pillow
 
 from rotate_flip import apply_rotate_flip
 
@@ -13,10 +13,9 @@ def main():
     FLIP_VERTICAL = False    # 上下镜像
     EXPAND = True            # 自动扩大画布，防止裁角
 
-    try:
-        img = Image.open(INPUT_FILE)
-    except FileNotFoundError:
-        print(f"找不到 {INPUT_FILE}。请把一张图片放到本文件夹，并命名为 test.jpg")
+    img = cv2.imread(INPUT_FILE) #cv2.imread失败直接回None
+    if img is None:
+        print(f"无法读取 {INPUT_FILE}")
         return
 
     result = apply_rotate_flip(
@@ -27,8 +26,14 @@ def main():
         flip_vertical=FLIP_VERTICAL,
         expand=EXPAND,
     )
-    result.save(OUTPUT_FILE)
-    print(f"处理完成：{OUTPUT_FILE}（{result.width}x{result.height}）")
+    success = cv2.imwrite(OUTPUT_FILE, result)
+
+    if not success:
+        print("图片保存失败")
+        return
+    
+    h, w = result.shape[:2]
+    print(f"处理完成：{OUTPUT_FILE} ({w}x{h})")
 
 
 if __name__ == "__main__":
