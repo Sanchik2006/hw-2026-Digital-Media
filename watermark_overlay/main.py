@@ -1,11 +1,15 @@
 # 新建main用于测试
 import cv2
-from watermark import apply_watermark
+from .watermark import apply_watermark
 import numpy as np
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+INPUT_FILE = HERE / "test.jpg"
+OUTPUT_FILE = HERE / "output.jpg"
 
 def main():
-    INPUT_FILE = "test.jpg"
-    OUTPUT_FILE = "output.jpg"
 
     TEXT = "包浆老图"
     POSITION = "center"
@@ -14,7 +18,7 @@ def main():
     FONT_SIZE = 150
     IS_TILED = False
 
-    img = cv2.imread(INPUT_FILE)
+    img = cv2.imread(str(INPUT_FILE))
 
     if img is None:
         print(f"无法读取 {INPUT_FILE}")
@@ -30,22 +34,7 @@ def main():
         is_tiled=IS_TILED,
     )
 
-
-
-
-
-    # 检查水印是否成功叠加
-    diff = cv2.absdiff(img, result)
-
-    print("原图尺寸：", img.shape)
-    print("结果尺寸：", result.shape)
-    print("最大像素差异：", np.max(diff))
-    print("平均像素差异：", np.mean(diff))
-    print("发生变化的像素数量：",
-        np.count_nonzero(np.any(diff != 0, axis=2)))
-
-
-    success = cv2.imwrite(OUTPUT_FILE, result)
+    success = cv2.imwrite(str(OUTPUT_FILE), result)
 
     if not success:
         print("图片保存失败")

@@ -13,16 +13,21 @@ from watermark_remove import (
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
-# 临时解决跨目录导入问题
-sys.path.insert(
-    0,
-    str(ROOT / "Watermark-overlay")
+from watermark_overlay import apply_watermark
+
+from .watermark_remove import (
+    remove_watermark,
+    detect_white_watermark_mask,
 )
 
-from watermark import apply_watermark
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+INPUT_FILE = HERE / "test.jpg"
+OUTPUT_FILE = HERE / "output.jpg"
 
 def main():
-    INPUT_FILE = HERE / "test.jpg"
     WM_INPUT_FILE = HERE / "watermark_input.jpg"
     WM_REMOVED_FILE = HERE / "watermark_removed.jpg"
     COMPARE_FILE = HERE / "compare.jpg"
@@ -101,7 +106,7 @@ def main():
     ]
 
     for path, image in outputs:
-        if not cv2.imwrite(str(path), image):
+        if not cv2.imwrite(str(OUTPUT_FILE), image):
             raise OSError(f"图片保存失败: {path}")
 
     # 8. 保存调试掩膜
@@ -114,17 +119,8 @@ def main():
     for name, image in debug_info.items():
         path = HERE / f"_tmp_{name}.png"
 
-        if not cv2.imwrite(str(path), image):
+        if not cv2.imwrite(str(OUTPUT_FILE), image):
             raise OSError(f"调试图片保存失败: {path}")
-
-    # 9. 输出检测信息
-    mask_ratio = np.count_nonzero(mask) / mask.size
-
-    print(f"掩膜覆盖率: {mask_ratio:.2%}")
-    print(f"输出类型: {type(removed)}")
-    print(f"输出形状: {removed.shape}")
-    print(f"像素类型: {removed.dtype}")
-    print(f"对比图片: {COMPARE_FILE}")
 
 
 if __name__ == "__main__":

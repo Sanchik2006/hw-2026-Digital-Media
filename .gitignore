@@ -1,9 +1,26 @@
-# Python 虚拟环境
+# Python 环境及缓存
 .venv/
-
-# Python 缓存文件
 __pycache__/
 *.pyc
+.DS_Store
 
 # macOS 系统文件
 .DS_Store
+
+# 模块测试输出
+image_compress/output.jpg
+noise_color_shift/output.jpg
+rotate_flip/output.jpg
+watermark_overlay/output.jpg
+
+# 去水印调试输出
+watermark_remove/_tmp_*
+watermark_remove/watermark_input.jpg
+watermark_remove/watermark_removed.jpg
+watermark_remove/compare.jpg
+watermark_remove/output.jpg
+watermark_remove/manual_output.jpg
+
+# 集成测试
+integrate/test.jpg
+integrate/output.jpg
