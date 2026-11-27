@@ -1,2 +1,4 @@
+# 整合过程版本依赖清单
 numpy==2.5.5
 opencv-python==5.1.0.95
+pillow==13.0.0

@@ -1,5 +1,6 @@
 from PIL import Image, ImageFilter
 import numpy as np
+import cv2 #fix:OpenCV导入(RGB和BGR转换)
 
 
 def add_noise(img_array: np.ndarray, noise_strength: float) -> np.ndarray:
@@ -32,16 +33,16 @@ def color_shift_green(img_array: np.ndarray, green_strength: float) -> np.ndarra
 
 
 def apply_patina_effect(
-    input_img: Image.Image,
+    input_img: np.ndarry,#输入np.ndarry图像并在后续转为pillow
     package_level: float,
     green_level: float = 0.5
 ) -> Image.Image:
     """
     加噪及绿调主接口
-    :param input_img: PIL Image RGB对象（输入，和其他模块对接）
+    :param input_img: BGR uint8（输入，和其他模块对接）
     :param package_level: float 0~1（推荐值），整体包浆强度，控制轻度模糊和噪点
     :param green_level: float 0~1（推荐值），绿色偏色强度
-    :return: 处理完成后的PIL Image对象
+    :return: 处理完成后的BGR uint8对象
     """
     if package_level < 0:
         print(f"[WARN] package_level {package_level} 为负数，自动置0")
@@ -50,7 +51,9 @@ def apply_patina_effect(
         print(f"[WARN] green_level {green_level} 为负数，自动置0")
         green_level = 0.0
     
-    img_rgb = input_img.convert("RGB")
+    img_rgb = Image.fromarray(
+        cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
+    )#BGR->RGB->Pillow
 
     if package_level > 0:
         radius = 0.35 + package_level * 1.15
@@ -60,4 +63,4 @@ def apply_patina_effect(
     img_with_noise = add_noise(img_arr, package_level)
     img_final = color_shift_green(img_with_noise, green_level)
 
-    return Image.fromarray(img_final)
+    return cv2.cvtColor(img_final, cv2.COLOR_RGB2BGR)#Pillow->BGR numpy数组

@@ -6,6 +6,7 @@
 
 - pillow
 - numpy
+- opencv-python
 
 ```bash
 pip install pillow numpy
@@ -23,13 +24,13 @@ def apply_patina_effect(input_img, package_level, green_level=0.5)
 
 ### 参数说明
 
-- `input_img`: PIL Image RGB 对象，和其他模块对接。
+- `input_img`: BGR uint8 ndarry 对象，和其他模块对接。
 - `package_level`: float，0~1（推荐值），整体包浆强度，控制轻度模糊和噪点。
 - `green_level`: float，0~1（推荐值），绿色偏色强度。
 
 ### 返回值
 
-- 处理完成后的 PIL Image 对象。
+- 处理完成后的 BGR uint8 ndarry 对象。
 
 ## 规则说明
 
