@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 #请调用image_compress(img,age)函数，输入图像和压缩年限（0-50，年份越大，压缩越狠），返回压缩后的图像
-def map_year(age):
+def map_year(age:int)->tuple[int,int,float]:
     age=max(1,min(50,age))
     t = (age - 1) / 49.0
     repeat_times = round(1 + t * 5)
@@ -9,11 +9,14 @@ def map_year(age):
     scale_percent = round(0.98 - t * 0.9, 2)
     return repeat_times, quality_factor, scale_percent
 
-def resize(img,scale_percent):
+def resize(
+        img:np.ndarray,
+        scale_percent:float
+        )->np.ndarray:
 
      h,w,channel=img.shape
-     target_width=int(w*scale_percent)
-     target_height=int(h*scale_percent)
+     target_width=max(1,int(w*scale_percent))
+     target_height=max(1,int(h*scale_percent)) #限制了缩放后尺寸>0
 
      resized=np.zeros((target_height,target_width,channel),dtype=img.dtype)
 
@@ -29,7 +32,11 @@ def resize(img,scale_percent):
                resized[i,j]=img[prev_h,prev_w]
      return resized
 
-def JPEG_compress(img,quality_factor,repeat_times):
+def JPEG_compress(
+        img:np.ndarray,
+        quality_factor:int,
+        repeat_times:int
+        )->np.ndarray:
     YCbCr=cv2.cvtColor(img,cv2.COLOR_BGR2YCrCb)
     YCbCr_float=YCbCr.astype(np.float32)
     h,w,c=YCbCr_float.shape
@@ -69,10 +76,20 @@ def JPEG_compress(img,quality_factor,repeat_times):
                     padded[i:i+8, j:j+8, ch] = idct_block
 
     result_ycbcr = padded[:h, :w]
+    result_ycbcr = np.clip(result_ycbcr, 0, 255)#守卫防止像素值溢出
     result_bgr = cv2.cvtColor(result_ycbcr.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
     return result_bgr
 
-def image_compress(img,age):
+def image_compress(
+        img:np.ndarray,
+        age:int
+        )->np.ndarray:
+    """
+    传入:
+        img:bgr uint8图像数组(H,W,3),age:包浆年份(已限制1~50)
+    return:
+        压缩后bgr uint8图像数组
+    """
     repeat_times, quality_factor, scale_percent=map_year(age)
     resized=resize(img,scale_percent)
     compressed=JPEG_compress(resized,quality_factor,repeat_times)
